@@ -11,11 +11,12 @@
     // --- DTOs (Request / Response) ---
     public class CreateElementoRequest
     {
-        public string CodigoBarras { get; set; } = string.Empty;
-        public string Nombre { get; set; } = string.Empty;
-        public string? Descripcion { get; set; }
-        public string Categoria { get; set; } = string.Empty;
-        public decimal Precio { get; set; }
+        public string CodigoBien { get; set; } = string.Empty;
+        public string NombreBien { get; set; } = string.Empty;
+        public string? Serie { get; set; }
+        public string? Modelo { get; set; }
+        public string? MarcaRazaOtros { get; set; }
+        public string? Ubicacion { get; set; }
         public string? RutaImagen { get; set; }
     }
 
@@ -52,29 +53,29 @@
 
         public async Task<IResult> HandleAsync(CreateElementoRequest request, HttpContext http)
         {
-            if (string.IsNullOrWhiteSpace(request.CodigoBarras) || string.IsNullOrWhiteSpace(request.Nombre) || string.IsNullOrWhiteSpace(request.Categoria))
-                return Results.BadRequest("Código de barras, nombre y categoría son obligatorios.");
-
-            if (request.Precio < 0)
-                return Results.BadRequest("El precio no puede ser negativo.");
+            if (string.IsNullOrWhiteSpace(request.CodigoBien) || string.IsNullOrWhiteSpace(request.NombreBien))
+                return Results.BadRequest("Código del bien y nombre del bien son obligatorios.");
 
             var userId = GetLoggedUserId(http);
             if (userId == null)
                 return Results.Forbid();
 
-            var codigoNormalizado = request.CodigoBarras.Trim();
-            var existe = await _db.Elementos.AnyAsync(e => e.CodigoBarras == codigoNormalizado);
-            if (existe)
-                return Results.Conflict("Ya existe un elemento con ese código de barras.");
+            var codigoBien = request.CodigoBien.Trim();
+            var nombreBien = request.NombreBien.Trim();
+
+            var existeDuplicado = await _db.Elementos.AnyAsync(e => e.CodigoBien == codigoBien);
+            if (existeDuplicado)
+                return Results.Conflict("Ya existe un elemento con ese código del bien.");
 
             var elemento = new Elemento
             {
                 Id = Guid.NewGuid(),
-                CodigoBarras = codigoNormalizado,
-                Nombre = request.Nombre.Trim(),
-                Descripcion = request.Descripcion?.Trim(),
-                Categoria = request.Categoria.Trim(),
-                Precio = request.Precio,
+                CodigoBien = codigoBien,
+                NombreBien = nombreBien,
+                Serie = request.Serie?.Trim(),
+                Modelo = request.Modelo?.Trim(),
+                MarcaRazaOtros = request.MarcaRazaOtros?.Trim(),
+                Ubicacion = request.Ubicacion?.Trim(),
                 RutaImagen = request.RutaImagen?.Trim(),
                 UsuarioIdPropietario = userId.Value
             };

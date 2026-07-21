@@ -102,6 +102,21 @@ try
 }
 catch { /* ignore if AddOpenApi not available */ }
 
+
+//cors
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("PoliticaFrontend", policy =>
+    {
+        // Reemplaza con la URL y puerto exacto donde corre tu entorno de desarrollo web (ej. Vite/SvelteKit)
+        policy.AllowAnyOrigin()
+              .AllowAnyHeader()
+              .AllowAnyMethod();
+    });
+});
+
+
+
 var app = builder.Build();
 
 // Enable Swagger UI for all environments so the health endpoint is discoverable
@@ -117,6 +132,7 @@ catch { /* ignore if MapOpenApi not available */ }
 
 app.UseHttpsRedirection();
 app.UseStaticFiles();
+app.UseCors("PoliticaFrontend");
 // Use in-repo JWT validator middleware to populate HttpContext.User when valid Bearer token provided
 app.UseJwtValidation();
 app.UseAuthorization();

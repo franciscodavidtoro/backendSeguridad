@@ -22,7 +22,7 @@ public static class ExportarExcelEndpoint
             .RequireAuthorization()
             .WithTags("Procesamiento Masivo")
             .WithSummary("Exportar catálogo de elementos a archivo Excel")
-            .WithDescription("Genera un archivo Excel con el inventario filtrado por nombre o código de barras.")
+            .WithDescription("Genera un archivo Excel con el inventario filtrado por nombre del bien o código del bien.")
             .Produces(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status400BadRequest);
     }
@@ -45,18 +45,19 @@ public class ExportarExcelHandler
         if (!string.IsNullOrWhiteSpace(buscar))
         {
             var term = buscar.Trim();
-            query = query.Where(e => e.Nombre.Contains(term) || e.CodigoBarras.Contains(term));
+            query = query.Where(e => e.NombreBien.Contains(term) || e.CodigoBien.Contains(term));
         }
 
         var elementos = await query
             .Select(e => new
             {
                 e.Id,
-                e.CodigoBarras,
-                e.Nombre,
-                e.Descripcion,
-                e.Categoria,
-                e.Precio,
+                e.CodigoBien,
+                e.NombreBien,
+                e.Serie,
+                e.Modelo,
+                e.MarcaRazaOtros,
+                e.Ubicacion,
                 e.RutaImagen,
                 e.UsuarioIdPropietario
             })

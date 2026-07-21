@@ -11,11 +11,12 @@ public class GetElementoByIdRequest { }
 public class GetElementoByIdResponse
 {
     public Guid Id { get; set; }
-    public string CodigoBarras { get; set; } = string.Empty;
-    public string Nombre { get; set; } = string.Empty;
-    public string? Descripcion { get; set; }
-    public string Categoria { get; set; } = string.Empty;
-    public decimal Precio { get; set; }
+    public string CodigoBien { get; set; } = string.Empty;
+    public string NombreBien { get; set; } = string.Empty;
+    public string? Serie { get; set; }
+    public string? Modelo { get; set; }
+    public string? MarcaRazaOtros { get; set; }
+    public string? Ubicacion { get; set; }
     public string? RutaImagen { get; set; }
     public Guid UsuarioIdPropietario { get; set; }
 }
@@ -61,11 +62,12 @@ public class GetElementoByIdHandler
         return Results.Ok(new GetElementoByIdResponse
         {
             Id = elemento.Id,
-            CodigoBarras = elemento.CodigoBarras,
-            Nombre = elemento.Nombre,
-            Descripcion = elemento.Descripcion,
-            Categoria = elemento.Categoria,
-            Precio = elemento.Precio,
+            CodigoBien = elemento.CodigoBien,
+            NombreBien = elemento.NombreBien,
+            Serie = elemento.Serie,
+            Modelo = elemento.Modelo,
+            MarcaRazaOtros = elemento.MarcaRazaOtros,
+            Ubicacion = elemento.Ubicacion,
             RutaImagen = elemento.RutaImagen,
             UsuarioIdPropietario = elemento.UsuarioIdPropietario
         });

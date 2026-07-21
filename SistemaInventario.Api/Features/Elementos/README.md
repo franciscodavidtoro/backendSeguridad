@@ -1,3 +1,22 @@
-# M骴ulo: Elementos
+# M贸dulo: Elementos
 
-Documentaci髇 espec韋ica para las reglas de negocio, validaciones y particularidades de Elementos.
+Documentaci贸n espec铆fica para las reglas de negocio, validaciones y particularidades de Elementos.
+
+## Campos del bien
+
+Cada elemento del inventario debe registrar la siguiente informaci贸n b谩sica:
+
+- C贸digo Bien: string para conservar posibles ceros a la izquierda.
+- Nombre Bien: string con el nombre descriptivo del bien.
+- Serie: string opcional.
+- Modelo: string opcional.
+- Marca / Raza / Otros: string opcional.
+- Ubicaci贸n: string opcional.
+
+## Reglas de negocio
+
+- El c贸digo de barras, el c贸digo del bien, el nombre, el nombre del bien y la categor铆a son obligatorios al crear o actualizar un elemento.
+- El precio no puede ser negativo.
+- No se permite duplicar un c贸digo de barras dentro del inventario.
+- Los usuarios solo pueden modificar o eliminar elementos que les pertenecen, salvo que tengan rol de administrador.
+- La importaci贸n masiva debe respetar los campos nuevos para que el cat谩logo quede completo.

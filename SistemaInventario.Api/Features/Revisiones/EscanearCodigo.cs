@@ -16,15 +16,15 @@ public static class EscanearCodigo
         app.MapPost("/api/revisiones/{id}/escanear", HandleAsync)
             .RequireAuthorization()
             .WithTags("Procesos de Revisión y Auditoría")
-            .WithSummary("Procesar el escaneo de un código de barras físico")
-            .WithDescription("Verifica existencia del ítem e intercepta duplicados con 409 Conflict.")
+            .WithSummary("Procesar el escaneo por código del bien")
+            .WithDescription("Verifica existencia del ítem por código del bien e intercepta duplicados con 409 Conflict.")
             .Produces(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status404NotFound)
             .Produces(StatusCodes.Status409Conflict);
     }
 
-    public record EscaneoRequest(string CodigoBarras);
+    public record EscaneoRequest(string CodigoBien);
 
     private static async Task<IResult> HandleAsync(string id, EscaneoRequest request, ApplicationDbContext db, HttpContext http)
     {
@@ -46,10 +46,10 @@ public static class EscanearCodigo
         if (revision.UsuarioId != usuarioId && !string.Equals(userRole, "Admin", StringComparison.OrdinalIgnoreCase))
             return Results.Forbid();
 
-        // 3. Buscar CodigoBarras en maestro de Elementos
-        var elemento = await db.Elementos.FirstOrDefaultAsync(e => e.CodigoBarras == request.CodigoBarras);
+        // 3. Buscar Código del bien en maestro de Elementos
+        var elemento = await db.Elementos.FirstOrDefaultAsync(e => e.CodigoBien == request.CodigoBien);
         if (elemento == null)
-            return Results.NotFound("Elemento no encontrado con ese código de barras");
+            return Results.NotFound("Elemento no encontrado con ese código del bien");
 
         // 4. Verificar duplicidad en RevisionDetalles
         var existe = await db.RevisionDetalles.AnyAsync(rd => rd.RevisionId == revisionId && rd.ElementoId == elemento.Id);
