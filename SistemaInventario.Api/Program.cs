@@ -3,10 +3,22 @@ using System.IO;
 using System.Text;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using Nethereum.Signer;
 using SistemaInventario.Api.Infrastructure.Database;
 using SistemaInventario.Api.Infrastructure.Security;
 
 var builder = WebApplication.CreateBuilder(args);
+var blockchainConfig = builder.Configuration.GetSection("BlockchainLogging").Get<BlockchainLoggerOptions>() ?? new BlockchainLoggerOptions();
+if (string.IsNullOrWhiteSpace(blockchainConfig.PrivateKey))
+{
+    var ecKey = EthECKey.GenerateKey();
+    var address = ecKey.GetPublicAddress();
+    var privateKey = ecKey.GetPrivateKey();
+    var startupLogger = LoggerFactory.Create(logging => logging.AddConsole()).CreateLogger("BlockchainKeyGenerator");
+    startupLogger.LogInformation("Blockchain key pair generated. Address: {Address}", address);
+    startupLogger.LogInformation("Blockchain private key generated. PrivateKey: {PrivateKey}", privateKey);
+}
 
 // Ensure images folder exists (from configuration)
 var imagesRelativePath = builder.Configuration.GetValue<string>("FileStorage:ImagesPath")?.Trim() ?? "wwwroot/images/";
@@ -66,6 +78,8 @@ builder.Services.AddAuthentication(options =>
 // No external JWT middleware added; use internal JwtValidationMiddleware instead.
 builder.Services.AddAuthorization();
 
+// Blockchain logger provider: copia cada ILogger también a la red Ethereum Sepolia si se configura la llave privada.
+builder.Logging.AddProvider(new BlockchainLoggerProvider(builder.Configuration));
 
 // Swagger / OpenAPI
 builder.Services.AddEndpointsApiExplorer();
@@ -186,6 +200,8 @@ SistemaInventario.Api.Features.Imagenes.CreateImagenEndpoint.Map(app);
 SistemaInventario.Api.Features.Imagenes.GetImagenByIdEndpoint.Map(app);
 SistemaInventario.Api.Features.Imagenes.UpdateImagenEndpoint.Map(app);
 SistemaInventario.Api.Features.Imagenes.DeleteImagenEndpoint.Map(app);
+
+app.Logger.LogInformation("Blockchain startup test log: enviando prueba de log a la red.");
 
 app.Run();
 
