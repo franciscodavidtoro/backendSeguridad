@@ -56,7 +56,7 @@ namespace SistemaInventario.Api.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Elementos");
+                    b.ToTable("Elementos", (string)null);
                 });
 
             modelBuilder.Entity("SistemaInventario.Api.Domain.Entities.Imagen", b =>
@@ -81,7 +81,7 @@ namespace SistemaInventario.Api.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Imagenes");
+                    b.ToTable("Imagenes", (string)null);
                 });
 
             modelBuilder.Entity("SistemaInventario.Api.Domain.Entities.Revision", b =>
@@ -110,7 +110,7 @@ namespace SistemaInventario.Api.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Revisiones");
+                    b.ToTable("Revisiones", (string)null);
                 });
 
             modelBuilder.Entity("SistemaInventario.Api.Domain.Entities.RevisionDetalle", b =>
@@ -130,7 +130,7 @@ namespace SistemaInventario.Api.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("RevisionDetalles");
+                    b.ToTable("RevisionDetalles", (string)null);
                 });
 
             modelBuilder.Entity("SistemaInventario.Api.Domain.Entities.Usuario", b =>
@@ -140,15 +140,26 @@ namespace SistemaInventario.Api.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Cedula")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Email")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<bool>("MfaEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("MfaSecretKey")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("Nombre")
                         .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("OAuthProvider")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("OAuthProviderId")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("PasswordHash")
@@ -161,7 +172,7 @@ namespace SistemaInventario.Api.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Usuarios");
+                    b.ToTable("Usuarios", (string)null);
                 });
 #pragma warning restore 612, 618
         }
