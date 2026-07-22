@@ -5,6 +5,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.EntityFrameworkCore;
 using SistemaInventario.Api.Infrastructure.Database;
 using SistemaInventario.Api.Infrastructure.Security;
+using Microsoft.AspNetCore.Authentication.Negotiate;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -62,7 +63,8 @@ builder.Services.AddAuthentication(options =>
     options.DefaultAuthenticateScheme = "Passive";
 })
     .AddScheme<Microsoft.AspNetCore.Authentication.AuthenticationSchemeOptions, SistemaInventario.Api.Infrastructure.Security.PassiveAuthenticationHandler>(
-        "Passive", _ => { });
+        "Passive", _ => { })
+        .AddNegotiate();
 // No external JWT middleware added; use internal JwtValidationMiddleware instead.
 builder.Services.AddAuthorization();
 
@@ -134,6 +136,7 @@ app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseCors("PoliticaFrontend");
 // Use in-repo JWT validator middleware to populate HttpContext.User when valid Bearer token provided
+app.UseAuthentication();
 app.UseJwtValidation();
 app.UseAuthorization();
 
