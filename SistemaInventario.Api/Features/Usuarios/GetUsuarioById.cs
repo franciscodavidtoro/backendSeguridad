@@ -11,10 +11,11 @@ public class GetUsuarioByIdRequest { }
 public class GetUsuarioByIdResponse
 {
     public Guid Id { get; set; }
-    public string Cedula { get; set; } = string.Empty;
+    public string? Cedula { get; set; }
     public string Nombre { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
     public string Rol { get; set; } = string.Empty;
+    public bool MfaEnabled { get; set; }
 }
 
 /// <summary>
@@ -57,7 +58,8 @@ public class GetUsuarioByIdHandler
                 Cedula = usuario.Cedula,
                 Nombre = usuario.Nombre,
                 Email = usuario.Email,
-                Rol = usuario.Rol
+                Rol = usuario.Rol,
+                MfaEnabled = usuario.MfaEnabled
             };
 
             // Retornar con código 200 OK

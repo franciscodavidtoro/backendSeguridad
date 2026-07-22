@@ -43,7 +43,13 @@ public class JwtValidationMiddleware
 
                 var handler = new JwtSecurityTokenHandler();
                 var principal = handler.ValidateToken(token, validationParameters, out var validatedToken);
-                if (principal?.Identity != null && principal.Identity.IsAuthenticated)
+
+                // Los tokens de desafío MFA (emitidos tras validar la contraseña pero antes del
+                // segundo factor) NUNCA deben autenticar endpoints protegidos: solo son válidos
+                // en /api/auth/mfa/login-verificar, que los valida manualmente desde el body.
+                var esChallengeMfa = principal?.FindFirst("mfa_challenge")?.Value == "true";
+
+                if (!esChallengeMfa && principal?.Identity != null && principal.Identity.IsAuthenticated)
                 {
                     context.User = principal;
                 }

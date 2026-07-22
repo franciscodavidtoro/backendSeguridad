@@ -1,15 +1,33 @@
 using System;
 using System.IO;
 using System.Text;
+using System.Collections.Generic;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.IdentityModel.Protocols;
+using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Nethereum.Signer;
+using Microsoft.AspNetCore.Authentication.Negotiate;
 using SistemaInventario.Api.Infrastructure.Database;
 using SistemaInventario.Api.Infrastructure.Security;
-using Microsoft.AspNetCore.Authentication.Negotiate;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// ============================================================
+// 1. VALIDACIONES Y CONFIGURACIÓN INICIAL (TUYAS + COMPAÑERO)
+// ============================================================
+
+// [TUYO] Validación estricta del JWT
+if (string.IsNullOrWhiteSpace(builder.Configuration["JwtSettings:SecretKey"]))
+{
+    throw new InvalidOperationException(
+        "No se configuró JwtSettings:SecretKey. En desarrollo, defínala con " +
+        "'dotnet user-secrets set \"JwtSettings:SecretKey\" \"<valor>\"'. En producción, use la " +
+        "variable de entorno JwtSettings__SecretKey (doble guion bajo).");
+}
+
+// [COMPAÑERO] Configuración de Blockchain
 var blockchainConfig = builder.Configuration.GetSection("BlockchainLogging").Get<BlockchainLoggerOptions>() ?? new BlockchainLoggerOptions();
 if (string.IsNullOrWhiteSpace(blockchainConfig.PrivateKey))
 {
@@ -21,12 +39,14 @@ if (string.IsNullOrWhiteSpace(blockchainConfig.PrivateKey))
     startupLogger.LogInformation("Blockchain private key generated. PrivateKey: {PrivateKey}", privateKey);
 }
 
-// Ensure images folder exists (from configuration)
+// Carpeta de imágenes
 var imagesRelativePath = builder.Configuration.GetValue<string>("FileStorage:ImagesPath")?.Trim() ?? "wwwroot/images/";
 var imagesAbsolutePath = Path.GetFullPath(imagesRelativePath, builder.Environment.ContentRootPath);
 Directory.CreateDirectory(imagesAbsolutePath);
 
-// Registrar los handlers en el contenedor de dependencias
+// ============================================================
+// 2. INYECCIÓN DE DEPENDENCIAS (HANDLERS Y SERVICIOS)
+// ============================================================
 builder.Services.AddScoped<SistemaInventario.Api.Features.Auth.RegistroHandler>();
 builder.Services.AddScoped<SistemaInventario.Api.Features.Auth.LoginHandler>();
 
@@ -44,30 +64,44 @@ builder.Services.AddScoped<SistemaInventario.Api.Features.Imagenes.GetImagenById
 builder.Services.AddScoped<SistemaInventario.Api.Features.Imagenes.UpdateImagenHandler>();
 builder.Services.AddScoped<SistemaInventario.Api.Features.Imagenes.DeleteImagenHandler>();
 
-// Database (in-memory for Phase 1)
-// 1. Obtienes el string de conexión de tu appsettings.json
+// [TUYO] OAuth 2.0 (Google) — cliente HTTP para el intercambio de código por tokens
+builder.Services.AddHttpClient("GoogleOAuth");
+builder.Services.AddSingleton(_ => new ConfigurationManager<OpenIdConnectConfiguration>(
+    "https://accounts.google.com/.well-known/openid-configuration",
+    new OpenIdConnectConfigurationRetriever(),
+    new HttpClient()));
+
+// ============================================================
+// 3. BASE DE DATOS
+// ============================================================
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 
-// 2. Condicionas el tipo de base de datos según el entorno
 if (builder.Environment.IsDevelopment())
 {
-    // Si estás en Development, usa la base de datos en memoria
     builder.Services.AddDbContext<ApplicationDbContext>(options =>
         options.UseInMemoryDatabase("InventarioDbMock"));
 }
 else
 {
-    // Si estás en Production (o cualquier otro), usa SQL Server con tu conexión real
+    // [TUYO] Validación estricta para producción
+    if (string.IsNullOrWhiteSpace(connectionString))
+    {
+        throw new InvalidOperationException(
+            "No se configuró ConnectionStrings:DefaultConnection. Defina la variable de entorno " +
+            "ConnectionStrings__DefaultConnection (doble guion bajo) con la cadena de conexión real " +
+            "antes de ejecutar fuera de Development.");
+    }
+
     builder.Services.AddDbContext<ApplicationDbContext>(options =>
         options.UseSqlServer(connectionString));
 }
 
-
-
-
-// Security
+// ============================================================
+// 4. SEGURIDAD Y LOGGING
+// ============================================================
 builder.Services.AddSingleton<IJwtProvider, JwtProvider>();
-// Register a passive authentication scheme that defers to the populated HttpContext.User
+
+// [FUSIONADO] Esquema pasivo + Negotiate de tu compañero
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultScheme = "Passive";
@@ -76,14 +110,16 @@ builder.Services.AddAuthentication(options =>
 })
     .AddScheme<Microsoft.AspNetCore.Authentication.AuthenticationSchemeOptions, SistemaInventario.Api.Infrastructure.Security.PassiveAuthenticationHandler>(
         "Passive", _ => { })
-        .AddNegotiate();
-// No external JWT middleware added; use internal JwtValidationMiddleware instead.
+    .AddNegotiate(); // <-- Esto lo hizo tu compañero
+
 builder.Services.AddAuthorization();
 
-// Blockchain logger provider: copia cada ILogger también a la red Ethereum Sepolia si se configura la llave privada.
+// [COMPAÑERO] Blockchain logger provider
 builder.Logging.AddProvider(new BlockchainLoggerProvider(builder.Configuration));
 
-// Swagger / OpenAPI
+// ============================================================
+// 5. SWAGGER Y CORS
+// ============================================================
 builder.Services.AddEndpointsApiExplorer();
 
 builder.Services.AddSwaggerGen(options =>
@@ -105,56 +141,41 @@ builder.Services.AddSwaggerGen(options =>
         [new Microsoft.OpenApi.OpenApiSecuritySchemeReference("Bearer", document)] = new List<string>()
     });
 
-    // FILTRO: Quitar candados a los endpoints sin autenticación
     options.OperationFilter<SistemaInventario.Api.Infrastructure.Security.QuitarCandadoFiltro>();
-    
-    // FILTRO: Documentar automáticamente la respuesta 401 en endpoints autorizados
     options.OperationFilter<SistemaInventario.Api.Infrastructure.Security.DocumentarUnauthorizedFiltro>();
 });
-// Keep any existing AddOpenApi extension if present
-try
-{
-    builder.Services.AddOpenApi();
-}
-catch { /* ignore if AddOpenApi not available */ }
 
+try { builder.Services.AddOpenApi(); } catch { }
 
-//cors
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("PoliticaFrontend", policy =>
     {
-        // Reemplaza con la URL y puerto exacto donde corre tu entorno de desarrollo web (ej. Vite/SvelteKit)
         policy.AllowAnyOrigin()
               .AllowAnyHeader()
               .AllowAnyMethod();
     });
 });
 
-
-
+// ============================================================
+// 6. PIPELINE DE LA APLICACIÓN
+// ============================================================
 var app = builder.Build();
 
-// Enable Swagger UI for all environments so the health endpoint is discoverable
 app.UseSwagger();
 app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "Sistema Inventario API V1"));
 
-// Map legacy openapi if available
-try
-{
-    app.MapOpenApi();
-}
-catch { /* ignore if MapOpenApi not available */ }
+try { app.MapOpenApi(); } catch { }
 
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseCors("PoliticaFrontend");
-// Use in-repo JWT validator middleware to populate HttpContext.User when valid Bearer token provided
-app.UseAuthentication();
+
+app.UseAuthentication(); // <-- Requerido por el Negotiate de tu compañero
 app.UseJwtValidation();
 app.UseAuthorization();
 
-// Health endpoint (API check)
+// Health endpoint
 app.MapGet("/api/health", (IConfiguration config, IWebHostEnvironment env) =>
 {
     var result = new
@@ -171,20 +192,25 @@ app.MapGet("/api/health", (IConfiguration config, IWebHostEnvironment env) =>
 .WithOpenApi();
 
 // ============================================================
-// MAPEO DE ENDPOINTS - MÓDULO USUARIOS
+// 7. MAPEO DE ENDPOINTS
 // ============================================================
-// Mapear las rutas de autenticación
 SistemaInventario.Api.Features.Auth.RegistroEndpoint.Map(app);
 SistemaInventario.Api.Features.Auth.LoginEndpoint.Map(app);
 
-// Mapear rutas de Revisiones
+// [TUYO] Rutas MFA y OAuth
+SistemaInventario.Api.Features.Auth.Mfa.MfaSetupEndpoint.Map(app);
+SistemaInventario.Api.Features.Auth.Mfa.MfaActivarEndpoint.Map(app);
+SistemaInventario.Api.Features.Auth.Mfa.MfaDesactivarEndpoint.Map(app);
+SistemaInventario.Api.Features.Auth.Mfa.MfaLoginVerificarEndpoint.Map(app);
+SistemaInventario.Api.Features.Auth.OAuth.OAuthIniciarEndpoint.Map(app);
+SistemaInventario.Api.Features.Auth.OAuth.OAuthCallbackEndpoint.Map(app);
+
 SistemaInventario.Api.Features.Revisiones.CrearRevision.Map(app);
 SistemaInventario.Api.Features.Revisiones.GetRevisiones.Map(app);
 SistemaInventario.Api.Features.Revisiones.GetRevisionById.Map(app);
 SistemaInventario.Api.Features.Revisiones.EscanearCodigo.Map(app);
 SistemaInventario.Api.Features.Revisiones.FinalizarRevision.Map(app);
 
-// Mapear rutas de Elementos
 SistemaInventario.Api.Features.Elementos.GetElementosEndpoint.Map(app);
 SistemaInventario.Api.Features.Elementos.GetElementoByIdEndpoint.Map(app);
 SistemaInventario.Api.Features.Elementos.CreateElementoEndpoint.Map(app);
@@ -192,19 +218,18 @@ SistemaInventario.Api.Features.Elementos.UpdateElementoEndpoint.Map(app);
 SistemaInventario.Api.Features.Elementos.DeleteElementoEndpoint.Map(app);
 SistemaInventario.Api.Features.Elementos.ImportarMasivoEndpoint.Map(app);
 SistemaInventario.Api.Features.Elementos.ExportarExcelEndpoint.Map(app);
-// Mapear rutas de Usuarios
+
 SistemaInventario.Api.Features.Usuarios.GetUsuariosEndpoint.Map(app);
 SistemaInventario.Api.Features.Usuarios.GetUsuarioByIdEndpoint.Map(app);
 SistemaInventario.Api.Features.Usuarios.UpdateUsuarioEndpoint.Map(app);
 SistemaInventario.Api.Features.Usuarios.DeleteUsuarioEndpoint.Map(app);
 
-// Mapear rutas de Imagenes
 SistemaInventario.Api.Features.Imagenes.CreateImagenEndpoint.Map(app);
 SistemaInventario.Api.Features.Imagenes.GetImagenByIdEndpoint.Map(app);
 SistemaInventario.Api.Features.Imagenes.UpdateImagenEndpoint.Map(app);
 SistemaInventario.Api.Features.Imagenes.DeleteImagenEndpoint.Map(app);
 
+// [COMPAÑERO] Log de prueba para la red Blockchain
 app.Logger.LogInformation("Blockchain startup test log: enviando prueba de log a la red.");
 
 app.Run();
-
